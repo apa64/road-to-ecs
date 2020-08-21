@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- 01-draw
+-- 01-draw v. 1.0
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- draw entities
@@ -96,7 +96,7 @@ function load_components()
 
   -- moves randomly
   c_randpos = function(dxmax, dymax)
-    return cmp("randpos", { dxmax = dxmax, dymax = dymax } )
+    return cmp("randpos", { dxmax = dxmax, dymax = dymax })
   end
 end
 
@@ -135,12 +135,12 @@ function ent(t)
   -- override entity's + and - operators
   setmetatable(t, {
     __index = cmpt,
-    __add = function(self,cmp)
+    __add = function(self, cmp)
       assert(cmp._cn)
       self[cmp._cn] = cmp
       return self
     end,
-    __sub = function(self,cn)
+    __sub = function(self, cn)
       self[cn] = nil
       return self
     end
