@@ -82,7 +82,7 @@ end
 -- ################## components
 
 -- creates component factories.
--- factoreis are wrapped in this to work around scope/visibility (otherwise ecs framework has to be first in file)
+-- factories are wrapped in this to work around scope/visibility (otherwise ecs framework has to be first in file)
 function load_components()
   -- x,y position
   c_pos = function(x, y)
@@ -91,7 +91,7 @@ function load_components()
 
   -- has drawable
   c_draw = function(sprite)
-    return cmp("draw",{ sprite = sprite })
+    return cmp("draw", { sprite = sprite })
   end
 
   c_control = cmp("control")
