@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- 01-draw v. 1.0
+-- ecs_01_draw v. 1.0
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- draw entities

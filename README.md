@@ -2,7 +2,7 @@
 
 [Entity-Component-System](https://en.wikipedia.org/wiki/Entity_component_system) pattern example code for [PICO-8](https://www.lexaloffle.com/pico-8.php).
 
-I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contains example code samples. You can read more from [Lexaloffle BBS](https://www.lexaloffle.com/bbs/?tid=39315).
+I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contains by learning projects or example code. You can read more from ["Road to ECS" blog thread @ Lexaloffle BBS](https://www.lexaloffle.com/bbs/?tid=39315).
 
 ## Getting Started
 
@@ -12,11 +12,11 @@ I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contain
 
 ### Installation
 
-Start up PICO-8, load and run the `.p8` files.
+Start up PICO-8. Load and run the `.p8` files.
 
 ```pico-8
 cd road-to-ecs
-load 01-draw.p8
+load ecs_01_draw.p8
 run
 ```
 
@@ -24,11 +24,11 @@ run
 
 Just look in the files, there's a lot of comments.
 
-### `01-draw.p8`
+### `ecs_01_draw.p8`
 
 Draw entities on screen.
 
-### `02-control.p8`
+### `ecs_02_control.p8`
 
 Control an entity.
 
@@ -58,7 +58,7 @@ This repository is made possible and builds on the work of the following talente
 
 ## Contact
 
-* GitHub [apa64](https://github.com/apa64)
-* Twitter [@apa64](https://twitter.com/apa64)
-* Lexaloffle BBS [@apa64](https://www.lexaloffle.com/bbs/?uid=45600)
-* Project link: https://github.com/apa64/road-to-ecs
+- GitHub [apa64](https://github.com/apa64)
+- Twitter [@apa64](https://twitter.com/apa64)
+- Lexaloffle BBS [@apa64](https://www.lexaloffle.com/bbs/?uid=45600)
+- Project link: https://github.com/apa64/road-to-ecs
