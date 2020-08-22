@@ -2,7 +2,7 @@
 
 [Entity-Component-System](https://en.wikipedia.org/wiki/Entity_component_system) pattern example code for [PICO-8](https://www.lexaloffle.com/pico-8.php).
 
-I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contains by learning projects or example code. You can read more from ["Road to ECS" blog thread @ Lexaloffle BBS](https://www.lexaloffle.com/bbs/?tid=39315).
+I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contains my learning projects or example code. You can read more from ["Road to ECS" blog thread @ Lexaloffle BBS](https://www.lexaloffle.com/bbs/?tid=39315).
 
 ## Getting Started
 
