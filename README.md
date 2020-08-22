@@ -12,7 +12,7 @@ I'm teaching myself the ECS gamedev pattern with PICO-8. This repository contain
 
 ### Installation
 
-Load and run the `.p8` files in PICO-8.
+Start up PICO-8, load and run the `.p8` files.
 
 ```pico-8
 cd road-to-ecs
@@ -32,7 +32,7 @@ Draw entities on screen.
 
 Control an entity.
 
-### Coming Up
+### Roadmap
 
 - Map
 - Collision detection
@@ -44,16 +44,17 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ## License
 
-Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See LICENSE for more information.
+Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See `LICENSE` for more information.
 
 ## Acknowledgments
 
-These examples are made possible and build on the work of the following talented people:
+This repository is made possible and builds on the work of the following talented people and projects:
 
 - Lexaloffle BBS [@KatrinaKitten: Tiny ECS Framework v1.1](https://www.lexaloffle.com/bbs/?tid=39021)
 - Lexaloffle BBS [@selfsame: Entity Component System](https://www.lexaloffle.com/bbs/?tid=30039)
 - Lexaloffle BBS [@alexr: ECS POC 1 v. 0.5](https://www.lexaloffle.com/bbs/?pid=68554#p)
-
+- [PurpleBooth/README-Template.md](https://gist.github.com/PurpleBooth/109311bb0361f32d87a2)
+- [Make a README](https://www.makeareadme.com/)
 
 ## Contact
 
