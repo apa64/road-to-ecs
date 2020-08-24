@@ -1,0 +1,749 @@
+pico-8 cartridge // http://www.pico-8.com
+version 27
+__lua__
+-- topdown game in ecs pattern
+-- by @apa64
+
+-- @mboffin: top down game
+-- @selfsame,alexr:ecs framework
+
+-- version: 1.0
+--[[ MIT License
+
+Copyright (c) 2020 Antti Ollilainen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+--]]
+
+-- buttons
+local b_left  = 0 -- ⬅️
+local b_right = 1 -- ➡️
+local b_up    = 2 -- ⬆️
+local b_down  = 3 -- ⬇️
+local b_fire1 = 4 -- 🅾️
+local b_fire2 = 5 -- ❎
+-- colours
+local c_black       = 0
+local c_dark_blue   = 1
+local c_dark_purple = 2
+local c_dark_green  = 3
+local c_brown       = 4
+local c_dark_gray   = 5
+local c_light_gray  = 6
+local c_white       = 7
+local c_red         = 8
+local c_orange      = 9
+local c_yellow      = 10
+local c_green       = 11
+local c_blue        = 12
+local c_indigo      = 13
+local c_pink        = 14
+local c_peach       = 15
+local palsorted = { 0, 5, 6, 7, 15, 14, 8, 2, 4, 9, 10, 11, 3, 12, 13, 1 }
+-- sprite names
+local s_player        = 16
+local s_key           = 4
+local s_chest_closed  = 20
+local s_chest_open    = 21
+local s_trap_kill     = 22
+local s_trap_safe     = 23
+local s_win           = 6
+local s_door_closed   = 36
+local s_door_open     = 37
+local s_text          = 38
+-- sprite types (number not limited by flags)
+local st_wall  = {3,17,18,19,35,s_text,s_door_closed,s_chest_closed,s_chest_open}
+local st_key   = {s_key}
+local st_gold  = {s_chest_closed}
+local st_door  = {s_door_closed}
+local st_anim1 = {s_trap_kill}
+local st_anim2 = {s_trap_safe}
+local st_text  = {s_text}
+local st_lose  = {s_trap_kill}
+local st_win   = {s_win}
+-- sound names
+local sfx_bump  = 0
+local sfx_win   = 1
+local sfx_lose  = 2
+local sfx_found = 3
+local sfx_open  = 4
+
+-- ECS entity container
+world = nil
+
+-->8
+-- ######################### ecs
+
+-- ecs lite (_has, system) by selfsame
+-- augmented (tag, untag, find_type, filter_by) by alexr
+-- https://www.lexaloffle.com/bbs/?tid=30039
+
+-- entities = tables in world
+-- components = k/v pairs of
+--   component names/values
+-- systems = functions created
+--   with system()
+
+-- helper for system()
+function _has(e, ks)
+  for _,k in pairs(ks) do
+    if (not e[k]) return false
+  end
+  return true
+end
+
+-- creates a system run function:
+-- 1) selects entities which have
+--    all components ks
+-- 2) calls function f
+--    for each
+function system(ks, f)
+  return function(es)
+    for _,e in pairs(es) do
+      if (_has(e, ks)) f(e)
+    end
+  end
+end
+
+-- adds component to entity
+function tag(e,k,v)
+  e[k]=v
+end
+
+-- removes component from entity
+function untag(e,k)
+  e[k]=nil
+end
+
+-- finds entities w/ compo k/v
+-- returns a sequence of entities
+function filter(es,k,v)
+  local res={}
+  for _,e in pairs(es) do
+    if e[k] == v then
+      add(res,e)
+    end
+  end
+  return res
+end
+
+-- finds first entity w/compo
+-- returns a single entity
+function find(es,k,v)
+  local res=filter(es,k,v)
+  if (#res>0) return res[1]
+  return nil
+end
+
+-- finds entities w/ compo key
+-- returns sequence of entities
+function filter_tagged(es,t)
+  local res={}
+  for _,e in pairs(es) do
+    if e[t] != nil then
+      add(res,e)
+    end
+  end
+  return res
+end
+
+-- returns table {x=x,y=y}
+function mk_pair(x,y)
+  return {x=x,y=y}
+end
+
+-->8
+-- ####################### utils
+
+-- from @alexr, loop optimizations by @apa64
+
+-- convert map coords to absolute coordinates
+function as_pos(mx,my)
+  return mk_pair(mx*8,my*8)
+end
+
+function contains(tbl,val)
+  for key,item in pairs(tbl) do
+    if (item == val) return true
+  end
+  return false
+end
+
+-- returns a random int between
+-- x0 inclusive and x1 inclusive
+function rint(x0,x1)
+ return x0+flr(rnd(x1-x0+1))
+end
+
+-- returns a random table element
+function relt(vals)
+ return vals[rint(1,#vals)]
+end
+
+-- returns distance between
+-- 2 entities' pos.x
+function dist_x(e1,e2)
+ return abs(e2.pos.x-e1.pos.x)
+end
+
+-- returns distance between
+-- 2 entities' pos.y
+function dist_y(e1,e2)
+ return abs(e2.pos.y-e1.pos.y)
+end
+
+-- returns (manhattan) distance
+-- between 2 entities
+function dist(e1,e2)
+ return dist_x(e1,e2)+dist_y(e1,e2)
+end
+
+-- returns distance squared
+-- between 2 positions
+function dist_sq(pos1,pos2)
+ local dx=pos2.x-pos1.x
+ local dy=pos2.y-pos1.y
+ return dx*dx+dy*dy
+end
+
+-- given a velocity, an acceleration,
+-- some friction, and a maximum velocity,
+-- returns the new velocity
+function get_vel(vel,accel,friction,max)
+  if accel!=0 then
+    return mid(-max,vel+accel,max)
+  elseif friction!=0 then
+    if vel-friction>0 then
+      return vel-friction
+    elseif vel+friction<0 then
+      return vel+friction
+    else
+      return 0
+    end
+  else
+    return mid(-max,vel,max)
+  end
+end
+
+function abs_box(e)
+  local box = {}
+  box.x1 = flr(e.pos.x+e.offset.x)
+  box.y1 = flr(e.pos.y+e.offset.y)
+  box.x2 = flr(box.x1+e.size.x)
+  box.y2 = flr(box.y1+e.size.y)
+  return box
+end
+
+function coll(a,b)
+  box_a = abs_box(a)
+  box_b = abs_box(b)
+
+  if box_a.x1 >= box_b.x2 or
+      box_a.y1 >= box_b.y2 or
+      box_b.x1 >= box_a.x2 or
+      box_b.y1 >= box_a.y2 then
+    return false
+  end
+  return true
+end
+
+-- center align string at given x coordinate
+-- x defaults to 64 (screen center)
+-- support for wide glyphs
+-- by @sparr /pico8lib
+function str_center(str, x)
+  local w = 0
+  for i = 1, #str do
+   w += (sub(str,i,i) > "\127" and 4 or 2)
+  end
+  return (x or 64) - w
+end
+
+-->8
+-- ############ object prototype
+
+-- generic prototype object, kind of a class - NOT related to ECS below
+_object = {}
+
+-- the constructor creates a new object
+-- params: o is an initializer table
+-- https://www.lexaloffle.com/bbs/?pid=21527#p
+-- inheritance: https://www.lua.org/pil/16.2.html
+-- TODO: add to list while constructing: https://www.lexaloffle.com/bbs/?tid=3847
+function _object:new(o)
+  local o = o or {} -- use initializer or create a new object if not provided
+  -- a table may have an associated table called metatable (mt).
+  -- the fields of the metatable are used to look up if key is not in this table.
+  setmetatable(o, self)
+  -- __index indicates which table is accessed when a key is not found in this.
+  -- in pixel:new() call self == pixel (prototype)
+  self.__index = self
+  return o
+end
+
+-->8
+-- ######################## menu
+
+-- states: menu, game, gameover
+
+function _init()
+  -- start from menu
+  menu_init()
+end
+
+function menu_init()
+  _update = menu_update
+  _draw = menu_draw
+end
+
+function menu_update()
+  if (btnp(b_fire2)) then
+    game_init() -- change state to play the game
+  end
+end
+
+function menu_draw()
+  cls()
+  local text = "press ❎ to start"
+  local textx = str_center(text)
+  print(text, textx, 60, c_green)  -- menu draw code
+end
+
+-->8
+-- ######################## game
+
+function game_init()
+  _update = game_update
+  _draw = game_draw
+  anim_time=0
+  anim_wait=1
+  world = {}
+  game_over = nil
+  game_win = nil
+  -- init entities with ugly shortcuts to map and player for non-ecs systems
+  world_map = mk_map()
+  add(world, world_map)
+  world_player = mk_player()
+  add(world, world_player)
+  -- init text sign system
+  text_init()
+end
+
+function game_update()
+  -- run the systems
+  input(world)
+  move(world)
+  -- check win/lose
+  if (game_over) gameover_init()
+end
+
+function game_draw()
+  cls()
+  -- animation
+  if (time() - anim_time > anim_wait) then
+    toggle_tiles()
+    anim_time = time()
+  end
+
+  -- run the systems
+  draw_map(world)
+  sprites(world)
+  show_inventory(world)
+  --debug(world)
+
+  text_draw()
+end
+
+-->8
+-- ################### game over
+
+function gameover_init()
+  _update = gameover_update
+  _draw = gameover_draw
+  world = {}
+end
+
+function gameover_update()
+  if (btnp(b_fire2)) then
+    extcmd("reset") -- at least the picked up key is returned to map...
+    menu_init() -- change state to back to menu
+  end
+end
+
+function gameover_draw()
+  ---cls()
+  camera()
+  rectfill(0,50,127,75,black)
+  if (game_win) then
+    text = "★ you win! ★"
+  else
+    text = "game over! :("
+  end
+  local textx = str_center(text)
+  print(text, textx, 60, c_red)  -- game draw code
+end
+
+-->8
+-- ## entity and compo factories
+
+-- factory methods return an entity table containing components (k/v pairs)
+
+function mk_map()
+  return {
+    type = "map", -- component: entity type
+    map = mk_pair(0, 0) -- component: camera tile position
+  }
+end
+
+function mk_player()
+  return {
+    type = "player",
+    spr = {frame=s_player},
+    pos = mk_pair(3, 3), -- map coords
+    offset = mk_pair(0,0), -- unused
+    size = mk_pair(1, 1), -- size in 8px tiles
+    input = true,
+    keys = 0,
+    gold = 0,
+    debug = { on=true, col=8, box=false }
+  }
+end
+
+-- component: movement destination
+function mk_move(x, y)
+  return {
+    type = "move",
+    move = mk_pair(x, y)
+  }
+end
+
+-- component: text sign on map
+function mk_text(x, y, text)
+  return {
+    type = "text",
+    pos = mk_pair(x, y),
+    size = mk_pair(1, 1),
+    text = text,
+    spr = {frame = s_text}, -- unused
+    st = st_text  -- unused
+  }
+end
+
+-->8
+-- ##################### systems
+
+-- systems react to components
+
+-- render systems
+
+sprites = system({"pos", "spr"},
+  function(e)
+    spr(e.spr.frame, e.pos.x*8, e.pos.y*8, e.size.x, e.size.y)
+  end
+)
+
+draw_map = system({"map"},
+  function(e)
+    -- calculate the map coord of the top left tile of current view
+    -- increases in steps of 16: 0->16->32...
+    e.map.x = flr(world_player.pos.x/16)*16
+    e.map.y = flr(world_player.pos.y/16)*16
+    -- move camera to show the section of map we want on screen
+    camera(e.map.x*8, e.map.y*8)
+    -- draw the full map, w 128 tiles, h 64 tiles
+    map(0, 0, 0, 0, 128, 64)
+  end
+)
+
+show_inventory = system({"show_inventory"},
+  function(e)
+      -- adapt to moving camera with map x,map y
+      local x=world_map.map.x*8+40
+      local y=world_map.map.y*8+8
+      rectfill(x,y,x+48,y+30,0)
+      print("inventory",x+7,y+4,7)
+      print("keys "..e.keys,x+12,y+14,9)
+      print("gold "..e.gold,x+12,y+20,9)
+      modal_open = true
+  end
+)
+
+-- draws a bounding box around an entity
+debug = system({"pos", "debug"},
+  function(e)
+    if e.debug.on then
+      local x1=e.pos.x*8+e.offset.x-1
+      local y1=e.pos.y*8+e.offset.y-1
+      local x2=x1+e.size.x*8-1+2
+      local y2=y1+e.size.y*8-1+2
+      if e.debug.box then
+        rect(x1,y1,x2,y2,e.debug.col)
+      else
+        pset(x1,y1,e.debug.col)
+        pset(x2,y1,e.debug.col)
+        pset(x2,y2,e.debug.col)
+        pset(x1,y2,e.debug.col)
+      end
+    end
+    --local map = find(world, "type", "map")
+    --print(e.pos.x..","..e.pos.y, 8*map.pos.x+0, 8*map.pos.y+123, c_red)
+  end
+)
+
+-- update systems
+
+-- handles user keypress, adds
+-- move component to entity.
+input = system({"input", "pos"},
+  function(e)
+    if (modal_open) then
+      if (btnp(b_fire1)) then
+        -- close modals
+        text_active = nil
+        modal_open = false
+        untag(e, "show_inventory")
+      end
+    else
+      local newx = e.pos.x
+      local newy = e.pos.y
+      local tagmove = false
+      if (btnp(b_left)) then
+        newx -= 1
+        tagmove = true
+      end
+      if (btnp(b_right)) then
+        newx += 1
+        tagmove = true
+      end
+      if (btnp(b_up)) then
+        newy -= 1
+        tagmove = true
+      end
+      if (btnp(b_down)) then
+        newy += 1
+        tagmove = true
+      end
+      if (tagmove) then
+        tag(e, "move", mk_pair(newx, newy))
+      end
+      if (btnp(b_fire1)) then
+        -- show inventory
+        tag(e, "show_inventory", true)
+      end
+    end
+  end
+)
+
+-- handles move component and
+-- removes it when done.
+move = system({"move", "pos"},
+  function(e)
+    -- move if able
+    if (can_move(e.move.x,e.move.y)) then
+      -- x and y always between 0,127 and 0,63
+      e.pos.x=mid(0, e.move.x, 31)
+      e.pos.y=mid(0, e.move.y, 31)
+    else
+      -- todo collision!
+      sfx(sfx_bump)
+    end
+    -- interact with dest tile
+    interact_map(e.move.x,e.move.y, e)
+    untag(e, "move")
+  end
+)
+
+-- other functions
+
+-- returns true if x,y is not wall
+function can_move(x,y)
+  return not is_tile(st_wall,x,y)
+end
+
+-- map interaction, non-ECS system
+
+-- interact with map tiles (not entities)
+function interact_map(x,y, player)
+  if (is_tile(st_text,x,y)) then
+    -- activate text component
+    text_active=text_get(x,y)
+  end
+
+  if(is_tile(st_key,x,y)) then
+    -- pick up key at location
+    player.keys+=1
+    swap_tile(x,y)
+    sfx(sfx_found)
+  elseif (is_tile(st_door,x,y)) then
+    if (player.keys > 0) then
+      player.keys-=1
+      swap_tile(x,y)
+      sfx(sfx_bump)
+    end
+  elseif (is_tile(st_gold,x,y)) then
+    player.gold+=5
+    swap_tile(x,y)
+    sfx(sfx_found)
+  elseif (is_tile(st_win,x,y)) then
+    game_win=true
+    game_over=true
+    sfx(sfx_win)
+  elseif (is_tile(st_lose,x,y)) then
+    game_win=false
+    game_over=true
+    sfx(sfx_lose)
+  end
+end
+
+-- returns whether map tile in x,y is of given type
+function is_tile(tile_type, x, y)
+  tile = mget(x,y)
+  for i=1,#tile_type do
+    if (tile == tile_type[i]) return true
+  end
+  return false
+end
+
+-- creates a texts array to match map and adds sign texts to it
+function text_init()
+  -- map 0,0 = 1  2  3  4  5  6  7
+  -- map 0,1 = 8  9 10 11 12 13 14
+  --...
+  -- texts[n] = x+y*map_width
+  texts={}
+  text_add(4,6,"first sign!")
+  text_add(8,6,"oh look!\nanother sign")
+end
+
+function text_add(x,y,message)
+  texts[x+y*128] = message
+end
+
+function text_get(x,y)
+  return texts[x+y*128]
+end
+
+function text_draw()
+  if (text_active) then
+    local textx=world_map.map.x*8+4
+    local texty=world_map.map.y*8+48
+    rectfill(textx,texty,textx+119,texty+31,7)
+    print(text_active,textx+4,texty+4,1)
+    print("🅾️ to close",textx+4,texty+23,6)
+    modal_open = true
+  end
+end
+
+-- animation code
+
+-- animate by toggling visible map tiles
+function toggle_tiles()
+  local mapx = world_map.map.x
+  local mapy = world_map.map.y
+  for x=mapx, mapx+15 do
+    for y=mapy, mapy+15 do
+      if (is_tile(st_anim1,x,y)) then
+        swap_tile(x,y)
+        sfx(sfx_bump)
+      elseif (is_tile(st_anim2,x,y)) then
+        unswap_tile(x,y)
+        sfx(sfx_bump)
+      end
+    end
+  end
+end
+
+-- swap map tile with next sprite
+function swap_tile(x,y)
+  tile=mget(x,y)
+  mset(x,y,tile+1)
+end
+
+-- swap map tile with prev sprite
+function unswap_tile(x,y)
+  tile=mget(x,y)
+  mset(x,y,tile-1)
+end
+
+__gfx__
+00000000333333333333333333333333333333333333333366666666000000000000000000000000000000000000000000000000000000000000000000000000
+000000003333333333333b3333111113999933333333333366888866000000000000000000000000000000000000000000000000000000000000000000000000
+007007003333333333333b33315655519aa933333333333368666686000000000000000000000000000000000000000000000000000000000000000000000000
+00077000333333333b33b33331555651933933333333333368688686000000000000000000000000000000000000000000000000000000000000000000000000
+000770003333333333b3333331555613933999993333333368688686000000000000000000000000000000000000000000000000000000000000000000000000
+007007003333333333b33333312555139999a9a93333333368666686000000000000000000000000000000000000000000000000000000000000000000000000
+00000000333333333333333333125513aaaa3a3a3333333366888866000000000000000000000000000000000000000000000000000000000000000000000000
+00000000333333333333333333311133333333333333333366666666000000000000000000000000000000000000000000000000000000000000000000000000
+00aaaa001111111111111111111155114a4444a43333333333333333333333330000000000000000000000000000000000000000000000000000000000000000
+0a1aa1a0111111111c1cc111115555514a4444a44a4aa4a436333633303330330000000000000000000000000000000000000000000000000000000000000000
+0a1aa1a01111111111111111155665514a4444a41519915106030603050305030000000000000000000000000000000000000000000000000000000000000000
+0aa22aa0111111111111111115555551aaa99aaa1111111130333033303330330000000000000000000000000000000000000000000000000000000000000000
+00aaaa0011111111111cc1c1c5555651191991911111111133333333333333330000000000000000000000000000000000000000000000000000000000000000
+0999999011111111111111111cc555cc4a4444a41511115136333633303330330000000000000000000000000000000000000000000000000000000000000000
+009999001111111111111111111ccc114a4444a44a4444a406030603050305030000000000000000000000000000000000000000000000000000000000000000
+044004401111111111111111111111114a4444a44a4444a430333033303330330000000000000000000000000000000000000000000000000000000000000000
+00000000666666666666666666566656555555555555555544444444000000000000000000000000000000000000000000000000000000000000000000000000
+0000000066666666666666665555555555444455550000554f11fff1000000000000000000000000000000000000000000000000000000000000000000000000
+0000000066666666666666565666566654444445540000054fff11f1000000000000000000000000000000000000000000000000000000000000000000000000
+0000000066666666656666665555555551144445540000054ffffff1000000000000000000000000000000000000000000000000000000000000000000000000
+00000000666666665666666666566656544444455400000541111111000000000000000000000000000000000000000000000000000000000000000000000000
+00000000666666666666566655555555544446455100000533341333000000000000000000000000000000000000000000000000000000000000000000000000
+00000000666666666666666656665666511444455400000533341003000000000000000000000000000000000000000000000000000000000000000000000000
+00000000666666666666666655555555544444455400000533333333000000000000000000000000000000000000000000000000000000000000000000000000
+__gff__
+0000000100000000000000000000000000010101010100000000000000000000000000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__map__
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101030101010101010101020101010101010101030101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101020101010101040101010101010101010301010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010201010101010101010101010101111211111111110101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010301010101010101010103010101010101010113110101011213111211000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+1111010101022101010101011401010101010101111211010101010101010113000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+1112110126012101260102010101010111111111110101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0111131116161616160101010111131111111312110101020101030101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101111216012201160101111112111111121111010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101111116171717161111111111010101010101010101010101010101010201000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101131112112101011123232323230101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101020111112211121323222222230101010103010101020101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101012121222124222206230101020101010101010101010101010301000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101020123222222230101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010301020101010123232323230101010101010101030101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101020101010101010101010101010101010101010201000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010103010101010101010101030101010101010101010101010301010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101020101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101020101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101020101010101010101010101010101010101010102010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101030101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010301010101010101010103010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101020101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101030101010101020101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010101010101020101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101010101010101010101010101010103010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101010101010101010101030101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+000300000905000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500001805018040000001800018050180403300033000180501804033000330001e0401e0501e0501e0501e0401e0302f0002e0002d0002e0002d0002d0002d0002d0002d0002d0002e0002e0002e0002e000
+000700002705027040000001b0501b0401a000100501005010040100300f000130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00040000270502705027050330503305033050330503305033040330403303033030330203302033010330102f0002f0002f0002e0002d0002e0002d0002d0002d0002d0002d0002d0002e0002e0002e0002e000
