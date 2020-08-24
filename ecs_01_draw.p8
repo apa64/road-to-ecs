@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- ecs_01_draw v. 1.0
+-- ecs_01_draw v. 1.1-SNAPSHOT
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- draw entities
@@ -82,7 +82,7 @@ end
 -- ################## components
 
 -- creates component factories.
--- factoreis are wrapped in this to work around scope/visibility (otherwise ecs framework has to be first in file)
+-- factories are wrapped in this to work around scope/visibility (otherwise ecs framework has to be first in file)
 function load_components()
   -- x,y position
   c_pos = function(x, y)
@@ -91,7 +91,7 @@ function load_components()
 
   -- has drawable
   c_draw = function(sprite)
-    return cmp("draw",{ sprite = sprite })
+    return cmp("draw", { sprite = sprite })
   end
 
   -- moves randomly
