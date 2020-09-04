@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- ecs_01_draw v. 1.1-SNAPSHOT
+-- ecs_01_draw v. 1.1
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- draw entities
@@ -30,10 +30,10 @@ software.
 --]]
 
 -- master container of entities
-entities = nil
+entities = {}
 
 function _init()
-  -- sfx(0)
+  sfx(0)
   -- create factories
   load_components()
   load_systems()
@@ -41,10 +41,8 @@ function _init()
   local e_player = mk_player(59, 119)
   local e_thing = mk_thing(30, 30)
   -- store ents in master table
-  entities = {
-    e_player,
-    e_thing
-  }
+  add(entities, e_player)
+  add(entities, e_thing)
 end
 
 function _update()
@@ -53,7 +51,7 @@ function _update()
 end
 
 function _draw()
-  cls()
+  cls(5)
   -- run draw system
   s_draw(entities)
 end
