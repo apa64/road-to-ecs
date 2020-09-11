@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- ecs_04_collision v. 0.1
+-- ecs_04_collision v. 1.0
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- entity collision detection
@@ -76,13 +76,13 @@ end
 -->8
 -- ################## components
 
--- x,y position
+-- x,y position.
 c_pos = function(x, y)
   return cmp("pos",
     { x = x, y = y })
 end
 
--- has drawable with size
+-- has drawable with size.
 c_appearance = function(sprite, w, h)
   w = w or 8
   h = h or 8
@@ -92,7 +92,7 @@ c_appearance = function(sprite, w, h)
       h = h })
 end
 
--- controllable tag
+-- controllable tag.
 c_control = function()
   return cmp("control")
 end
@@ -100,13 +100,13 @@ end
 -->8
 -- ##################### systems
 
--- drawing system
+-- drawing system.
 s_draw = sys({"pos", "appearance"},
 function(e)
   spr(e.appearance.sprite, e.pos.x, e.pos.y)
 end)
 
--- control system.
+-- control and collision system.
 s_control = sys({"control", "pos", "appearance"},
 function(e)
   local newx = e.pos.x
@@ -120,7 +120,7 @@ function(e)
 
   -- check collision for
   -- x and y separately to
-  -- "slide" along edges
+  -- "slide" along edges.
   if (is_entity_collision(e, newx, e.pos.y)) can_move_x = false
   if (is_entity_collision(e, e.pos.x, newy)) can_move_y = false
 
@@ -132,20 +132,36 @@ end)
 -->8
 -- ##################### helpers
 
+-- checks if e would collide
+-- with any entity with sprite
+-- in ents.
+-- e    - entity to compare
+-- newx - e is going there
+-- newy - e is going there
 function is_entity_collision(e, newx, newy)
   -- note: performance problem
   -- when there's a lot of e's
   -- b/c we iterate all twice on
   -- every update
   for e2 in all(ents) do
-    if (e != e2 and e2.appearance and overlap(e, newx, newy, e2)) return true
+    if (e != e2
+    and e2.appearance
+    and e2.pos
+    and overlap(e, newx, newy, e2)) then
+      return true
+    end
   end
   return false
 end
 
--- detect if box a and b overlap
+-- detect if box a and b overlap.
+-- both a and b must have comps
+-- appearance, pos
 -- original: https://mboffin.itch.io/pico8-overlap
-function overlap(a, newx, newy, b)
+function overlap(a,newx,newy,b)
+  assert(a.appearance)
+  assert(b.appearance)
+  assert(b.pos)
   return not (newx >= b.pos.x + b.appearance.w
            or newy >= b.pos.y + b.appearance.h
            or newx + a.appearance.w <= b.pos.x
