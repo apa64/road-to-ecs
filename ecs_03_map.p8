@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- ecs_03_map v. 1.0
+-- ecs_03_map v. 1.1
 -- by @apa64
 -- with tinyecs 1.1 by @katrinakitten https://www.lexaloffle.com/bbs/?tid=39021
 -- map, camera and cell movement
@@ -30,17 +30,18 @@ software.
 --]]
 #include tinyecs-1.1.lua
 
+-- map data
+map_w = 32
+map_h = 16
 -- master container of entities
 ents = {}
+-- shortcut to player entity
 e_player = nil
-e_map = nil
 
 function _init()
   -- player
   e_player = mk_player(7, 4)
   add(ents, e_player)
-  -- map
-  e_map = mk_map(31, 15)
 end
 
 function _update()
@@ -49,7 +50,7 @@ end
 
 function _draw()
   cls()
-  draw_map(e_map, e_player)
+  draw_map()
   s_draw(ents)
 end
 
@@ -59,19 +60,12 @@ end
 -- make player at x,y
 function mk_player(x, y)
   local e = ent()
-  e += c_mappos(x, y)
+  e += c_pos(x, y)
   e += c_spr(1)
   e += c_control()
   return e
 end
 
--- make map data holder entity
-function mk_map(xmax, ymax)
-  local e = ent()
-  e += c_camerapos(0, 0)
-  e += c_map(xmax, ymax)
-  return e
-end
 -->8
 -- ################## components
 
@@ -85,47 +79,35 @@ c_control = function()
   return cmp("control")
 end
 
--- map cell position, 0..map.xmax/ymax
-c_mappos = function(x, y)
-  return cmp("mappos",
+-- map cell position
+c_pos = function(x, y)
+  return cmp("pos",
     { x = x, y = y })
-end
-
--- camera map cell position
-c_camerapos = function(x, y)
-  return cmp("camerapos",
-    { x = x, y = y })
-end
-
--- map world limits
-c_map = function(xmax, ymax)
-  return cmp("map",
-    { xmax = xmax, ymax = ymax })
 end
 
 -->8
 -- ##################### systems
 
 -- sprite drawing system.
-s_draw = sys({"mappos", "spr"},
+s_draw = sys({"pos", "spr"},
 function(e)
   spr(e.spr.spr,
-    e.mappos.x * 8,
-    e.mappos.y * 8)
+    e.pos.x * 8,
+    e.pos.y * 8)
 end)
 
 -- control system.
-s_control = sys({"control", "mappos"},
+s_control = sys({"control", "pos"},
 function(e)
-  local newx = e.mappos.x
-  local newy = e.mappos.y
+  local newx = e.pos.x
+  local newy = e.pos.y
   if (btnp(0)) newx -= 1
   if (btnp(1)) newx += 1
   if (btnp(2)) newy -= 1
   if (btnp(3)) newy += 1
   -- world borders
-  e.mappos.x = mid(0, newx, e_map.map.xmax)
-  e.mappos.y = mid(0, newy, e_map.map.ymax)
+  e.pos.x = mid(0, newx, map_w-1)
+  e.pos.y = mid(0, newy, map_h-1)
 end)
 
 -->8
@@ -133,20 +115,15 @@ end)
 
 -- draw map and move camera
 -- to player position.
--- i think this can't be system
--- because it needs two entities
-function draw_map(e_map, e_player)
+function draw_map()
   -- calculate map top left cell for current view
   -- increases in steps of 16: 0, 16, 32...
-  e_map.camerapos.x = flr(e_player.mappos.x/16)*16
-  e_map.camerapos.y = flr(e_player.mappos.y/16)*16
+  local cam_x = flr(e_player.pos.x/16)*16
+  local cam_y = flr(e_player.pos.y/16)*16
   -- move camera to show map section we want
-  camera(e_map.camerapos.x * 8,
-    e_map.camerapos.y * 8)
+  camera(cam_x * 8, cam_y * 8)
   -- draw the full map
-  map(0, 0, 0, 0,
-    e_map.map.xmax + 1,
-    e_map.map.ymax + 1)
+  map(0, 0, 0, 0, map_w, map_h)
  end
 
 __gfx__

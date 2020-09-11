@@ -42,7 +42,7 @@ A basic game feature is controlling a player avatar on screen. The controlled en
 
 ### `ecs_03_map.p8`
 
-Draw a map and do map cell based movement.
+Draw a map and do map cell based movement. Only the player is an entity, map is not. There's also a shortcut `e_player` to avoid looping through `ents` just to search for the player. `pos` component represents map coordinates. MBoffin's Top-down-game tutorial inspired the map and camera functionality.
 
 ### `ecs_04_collision`
 
