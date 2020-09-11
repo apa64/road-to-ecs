@@ -46,7 +46,7 @@ Draw a map and do map cell based movement. Only the player is an entity, map is 
 
 ### `ecs_04_collision`
 
-Collision detection between entities. Collision detection is not a "system", just a function call in movement system.
+Collision detection between entities. Collision detection is not a "system", just a function call in movement system. Current version loops through all entities in `ents` for every move. Collision check function credit: [mboffin.itch.io/pico8-overlap](https://mboffin.itch.io/pico8-overlap).
 
 ## Other Files
 
