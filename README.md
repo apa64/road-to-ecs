@@ -113,5 +113,5 @@ This repository is made possible and builds on the work of the following talente
 ## Contact
 
 - GitHub repository: [apa64/road-to-ecs](https://github.com/apa64/road-to-ecs)
-- Twitter [@apa64](https://twitter.com/apa64)
+- Mastodon: [@apa64@mementomori.social](https://mementomori.social/@apa64)
 - Lexaloffle BBS [@apa64](https://www.lexaloffle.com/bbs/?uid=45600)
